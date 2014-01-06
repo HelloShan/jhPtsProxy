@@ -14,6 +14,10 @@
 #include<time.h>
 #include<stdlib.h>
 
+#include <string>
+#include <queue>
+using namespace std;
+
 #include "type.h"
 
 

@@ -100,6 +100,6 @@ typedef struct {
     nice(priority)
 
 
-#endif //WIN32
+#endif //__WIN32__
 
 #endif //__WIN_H__
