@@ -18,7 +18,8 @@ int main(int argc, char** argv)
 #endif
 	
 	XptClient client;
-	if(client.init("127.0.0.1", 28999))
+	//if(client.init("127.0.0.1", 28999))
+	if(client.init("112.124.13.238", 28988))
 	{
 		printf("cant not connect to xpt server\n");
 		return 0;
