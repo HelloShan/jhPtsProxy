@@ -118,4 +118,5 @@ static inline UINT64 ntohll_ex(UINT64 data)
 #define     ntohll_ex(value) (value)  
 #endif //__BIG_ENDIAN__
 
+
 #endif //__GLOBLE_H__

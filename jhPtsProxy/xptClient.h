@@ -3,6 +3,7 @@
 
 #include"global.h"
 #include "Thread.h"
+#include "ThreadQueue.h"
 
 
 // list of known opcodes
@@ -70,6 +71,13 @@ void inline getStr(uint32 &index,string &str,const char *buf)
 	index += len;
 }
 
+void inline getData(uint32 &index,uint8 *dst,uint32 len,const char *buf)
+{
+	if(!len) return;
+	memcpy(dst,buf+index,len);
+	index += len;
+}
+
 struct WorkerInfo
 {
 	uint32 pkglen;
@@ -116,7 +124,14 @@ class XptClient:public Thread
 
 	WorkerInfo *m_pWoker;
 
+	WorkData *m_pWD;
+	CRITICAL_SECTION m_wdcs;
+
 	SOCKET m_socket;
+
+	ThreadQueue<SubmitInfo*> m_queue;
+
+	volatile bool m_newwd;
 	//queue<
 public:
 	XptClient(){};
@@ -126,6 +141,8 @@ public:
 
 	virtual	THREAD_FUN  main();
 
+	const WorkData *getWorkData();
+	bool CheakNewWork();
 private:
 	void openConnection();
 	void closeConnection();
@@ -134,6 +151,9 @@ private:
 	void processReceive();
 
 	void dealAuthACK(uint32 len,const char *pbuf);
+	void dealWorkData(uint32 len,const char *pbuf);
+	void dealShareACK(uint32 len,const char *pbuf);
+	void dealMsg(uint32 len,const char *pbuf);
 };
 
 #endif //__XPT_CLIENT_H__

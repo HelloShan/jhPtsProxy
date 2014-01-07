@@ -89,6 +89,10 @@ SOURCE=.\jhPtsProxy\jhPtsProxy.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\jhPtsProxy\ProxyServer.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\jhPtsProxy\Thread.cpp
 # End Source File
 # Begin Source File
@@ -109,7 +113,15 @@ SOURCE=.\jhPtsProxy\global.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\jhPtsProxy\ProxyServer.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\jhPtsProxy\Thread.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\jhPtsProxy\ThreadQueue.h
 # End Source File
 # Begin Source File
 
