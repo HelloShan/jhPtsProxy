@@ -14,15 +14,16 @@ public:
 	{
 		InitializeCriticalSection(&m_mutex);
 	}
-	~ThreadQueue()
+	virtual ~ThreadQueue()
 	{
+		clear();
 	}
 
 	void clear()
 	{
 		EnterCriticalSection(&m_mutex);
 		queue<T> tmp;
-		m_queue.swap(tmp);
+		swap(m_queue,tmp);
 		LeaveCriticalSection(&m_mutex);
 	}
 

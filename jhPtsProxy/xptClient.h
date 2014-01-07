@@ -15,11 +15,6 @@
 #define XPT_OPC_C_SUBMIT_POW	6
 #define XPT_OPC_S_MESSAGE		7
 
-// list of error codes
-#define XPT_ERROR_NONE				(0)
-#define XPT_ERROR_INVALID_LOGIN		(1)
-#define XPT_ERROR_INVALID_WORKLOAD	(2)
-#define XPT_ERROR_INVALID_COINTYPE	(3)
 
 void inline dumpInt(uint32 &index,uint32 var,char *buf)
 {
@@ -36,6 +31,7 @@ void inline dumpStr(uint32 &index,string &str,char *buf)
 	memcpy(buf+index,str.c_str(),str.length());
 	index += str.length();
 }
+
 
 void inline getInt32(uint32 &index,uint32& var,const char *buf)
 {
@@ -135,14 +131,15 @@ class XptClient:public Thread
 	//queue<
 public:
 	XptClient(){};
-	~XptClient(){};
+	virtual ~XptClient(){};
 
 	int init(string ip,int port);
 
 	virtual	THREAD_FUN  main();
 
-	const WorkData *getWorkData();
+	WorkData *getWorkData();
 	bool CheakNewWork();
+	void pushSubmit(SubmitInfo *p);
 private:
 	void openConnection();
 	void closeConnection();

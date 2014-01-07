@@ -1,5 +1,6 @@
 #include "ProxyServer.h"
 #include "xptClient.h"
+#include "sha2_interface.h"
 
 int ProxyServer::init(int port,XptClient *xptclient)
 {
@@ -25,6 +26,7 @@ int ProxyServer::init(int port,XptClient *xptclient)
 	}
 	m_listen = s;
 	m_xptclient = xptclient;
+	m_wd = NULL;
 	return 0;
 }
 
@@ -59,15 +61,14 @@ bool ProxyServer::dealListen()
 
 }
 
-bool ProxyServer::recvOpt(uint8 *opt,SOCKET s)
+bool ProxyServer::recvCmd(uint32 *p,SOCKET s)
 {
 	uint32 index = 0;
-	uint32 len = 1;
+	uint32 len = 4;
 	int ret = 0;
-	uint8 opt = 0;
 	while(index<len)
 	{
-		ret = recv(s,((char*)&opt)+index,len-index,0);
+		ret = recv(s,((char*)p)+index,len-index,0);
 		if (ret <= 0)
 		{
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
@@ -81,18 +82,79 @@ bool ProxyServer::recvOpt(uint8 *opt,SOCKET s)
 	return true;
 }
 
-bool ProxyServer::sendBlock(SOCKET s)
+bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 {
+	static uint32 seed = 0;
 
+	if (NULL == m_wd)
+	{
+		//no work data,do nothing
+		return true;
+	}
+	
+	uint32 transactionDataLength = m_wd->coinBase1Size+m_wd->coinBase2Size+4;
+	uint8 *transactionData = (uint8*)new char[transactionDataLength];
+	if (!transactionData)
+	{
+		printf("ProxyServer::sendBlock memory error\n");
+		return false;
+	}
+	uint32 cmd = (n<<24)|CMD_ACK_BLOCK;
+	send(s,(char*)&cmd,4,0);
+	memcpy(transactionData,m_wd->coinBase1,m_wd->coinBase1Size);
+	memcpy(transactionData+m_wd->coinBase1Size+4,m_wd->coinBase2,m_wd->coinBase2Size);
+	for(uint32 i=0;i<n;i++)
+	{
+		memcpy(transactionData+m_wd->coinBase1Size,&seed,4);
+		
+		seed++;
+		SHA2_INTERFACE::instance->SHA2_sha256(transactionData,transactionDataLength,m_wd->block.merkleRoot);
+		SHA2_INTERFACE::instance->SHA2_sha256(m_wd->block.merkleRoot,32,m_wd->block.merkleRoot);
+		
+		send(s,(char*)&m_wd->block,sizeof(BlockInfo),0);
+	}
+
+	delete[] transactionData;
+	return true;
+}
+
+bool ProxyServer::recvShare(SOCKET s)
+{
+	uint32 index = 0;
+	uint32 len = sizeof(SubmitInfo);
+	int ret = 0;
+	SubmitInfo *p = new SubmitInfo();
+	if (!p)
+	{
+		printf("ProxyServer::recvShare memory error\n");
+		return false;
+	}
+	while(index<len)
+	{
+		ret = recv(s,((char*)p)+index,len-index,0);
+		if (ret <= 0)
+		{
+			if( WSAGetLastError() != WSAEWOULDBLOCK )
+			{
+				printf("XptClient::recvOpt error,this client will disconnect\n");
+				delete p;
+				return false;
+			}
+		}
+		index += ret;
+	}
+	m_xptclient->pushSubmit(p);
+	return true;
 }
 
 bool ProxyServer::dealClients()
 {
 	FD_SET fd;
+	FD_ZERO(&fd);
 	timeval sTimeout;
 	sTimeout.tv_sec = 0;
 	sTimeout.tv_usec = 250000;
-	for (int i = 0;i < m_clients.size();i++)
+	for (uint32 i = 0;i < m_clients.size();i++)
 	{
 		FD_SET(m_clients[i],&fd);
 	}
@@ -108,45 +170,91 @@ bool ProxyServer::dealClients()
 	{
 		if(FD_ISSET(*it,&fd))
 		{
-			uint8 opt = 0;
-			if (!recvOpt(&opt,*it))
+			uint32 cmd = 0;
+			if (!recvCmd(&cmd,*it))
 			{
 				closesocket(*it);
 				m_clients.erase(it++);
+				continue;
 			}
 			else
 			{
-				switch(opt)
+				cmd = ntohl_ex(cmd);
+				switch(cmd|0xFF)
 				{
 				case CMD_REQ_BLOCK:
-					sendBlock(*it);
+					if (!sendBlock(*it,cmd>>8))
+					{
+						closesocket(*it);
+						m_clients.erase(it++);
+						continue;
+					}
 					break;
 				case CMD_SMT_SHARE:
+					if(!recvShare(*it))
+					{
+						closesocket(*it);
+						m_clients.erase(it++);
+						continue;
+					}
 					break;
 				default:
 					printf("ProxyServer::dealClients unk opt \n");
 					break;
 				}
-				++it;
 			}
 		}
+		++it;
 	}
 
+	return true;
 }
+
+void ProxyServer::sendNewBlock()
+{
+	if (m_clients.empty())
+		return;
+
+	uint32 cmd = CMD_NEW_BLOCK;
+	for (uint32 i = 0;i < m_clients.size();i++)
+	{
+		send(m_clients[i],(char*)&cmd,4,0);
+	}
+}
+
 
 THREAD_FUN ProxyServer::main()
 {
 	while (1)
 	{
-		if (!m_clients.empty())
-		{
-			dealClients();
-		}
-		
 		while (m_listen)
 		{
 			if (false ==dealListen())
 				break;
 		}
+
+		if (m_xptclient->CheakNewWork())
+		{
+			if (m_wd)
+			{
+				delete m_wd;
+			}
+			WorkData *p=m_xptclient->getWorkData();
+			if (p)
+			{
+				m_wd = p;
+			}
+			//proxy client need to clear work queue
+			sendNewBlock();
+		}
+
+		if (!m_clients.empty())
+		{
+			dealClients();
+		}
+
+		Sleep(10);
 	}
+
+	return 0;
 }

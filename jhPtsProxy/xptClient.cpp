@@ -212,6 +212,10 @@ void XptClient::dealWorkData(uint32 len,const char *pbuf)
 		closeConnection();
 		return;
 	}
+	if (wd.txHashCount != 0)
+	{
+		printf("assert wd.txHashCount is %d\n",wd.txHashCount);
+	}
 	getData(index,wd.txHashes,wd.txHashCount*32,pbuf);
 
 	if (index>len)
@@ -244,6 +248,12 @@ WorkData *XptClient::getWorkData()
 bool XptClient::CheakNewWork()
 {
 	return m_newwd;
+}
+
+void XptClient::pushSubmit(SubmitInfo *p)
+{
+	if (!p) return;
+	m_queue.push(p);
 }
 
 void XptClient::dealShareACK(uint32 len,const char *pbuf)

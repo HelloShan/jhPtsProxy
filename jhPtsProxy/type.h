@@ -71,7 +71,7 @@ struct WorkData
 	uint16 coinBase2Size;
 	uint8 coinBase2[512];
 	uint16 txHashCount;
-	uint8 txHashes[32*16]; // space for 4096 tx hashes
+	uint8 txHashes[32*16];
 };
 
 #pragma pack()
