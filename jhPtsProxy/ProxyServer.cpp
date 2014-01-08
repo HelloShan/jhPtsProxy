@@ -40,15 +40,15 @@ bool ProxyServer::dealListen()
 	FD_ZERO(&fd);
 	FD_SET(m_listen,&fd);
 	
-	int r = select(m_listen+1, &fd, 0, 0, &sTimeout); 
+	int r = select((int)m_listen+1, &fd, 0, 0, &sTimeout); 
 	if (r<=0)
 	{
 		//printf("ProxyServer::dealListen have nothing\n");
 		return false;
 	}
-	SOCKADDR addr;
-	int len=sizeof(SOCKADDR);
-	SOCKET s = accept(m_listen, &addr, &len);
+	SOCKADDR_IN addr;
+	int len=sizeof(SOCKADDR_IN);
+	SOCKET s = accept(m_listen, (SOCKADDR*)&addr, &len);
 
 	// set socket as non-blocking
 #ifdef __WIN32__
@@ -57,6 +57,7 @@ bool ProxyServer::dealListen()
 #endif
 	WSAIoctl(s, FIONBIO, &nonblocking, sizeof(nonblocking), NULL, 0, (LPDWORD)&cbRet, NULL, NULL);
 
+	printf("accept proxy client,%s:%d\n",inet_ntoa(addr.sin_addr),ntohs(addr.sin_port));
 	m_clients.push_back(s);
 	return true;
 
@@ -74,7 +75,7 @@ bool ProxyServer::recvCmd(uint32 *p,SOCKET s)
 		{
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
 			{
-				printf("ProxyServer::recvCmd error,this client will disconnect\n");
+				//printf("ProxyServer::recvCmd error,this client will disconnect\n");
 				return false;
 			}
 		}
@@ -100,7 +101,8 @@ bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 		printf("ProxyServer::sendBlock memory error\n");
 		return false;
 	}
-	uint32 cmd = (n<<24)|CMD_ACK_BLOCK;
+	uint32 cmd = (n<<8)|CMD_ACK_BLOCK;
+	cmd = ntohl_ex(cmd);
 	send(s,(char*)&cmd,4,0);
 	memcpy(transactionData,m_wd->coinBase1,m_wd->coinBase1Size);
 	memcpy(transactionData+m_wd->coinBase1Size+4,m_wd->coinBase2,m_wd->coinBase2Size);
@@ -137,7 +139,7 @@ bool ProxyServer::recvShare(SOCKET s)
 		{
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
 			{
-				printf("ProxyServer::recvShare error,this client will disconnect\n");
+				//printf("ProxyServer::recvShare error,this client will disconnect\n");
 				delete p;
 				return false;
 			}
@@ -150,10 +152,10 @@ bool ProxyServer::recvShare(SOCKET s)
 
 void ProxyServer::closeClient(SOCKET s)
 {
-	SOCKADDR sa;
+	SOCKADDR_IN sa;
 	int len=sizeof(sa);
-	getpeername(s,&sa,&len);
-	printf("close proxy client,%s:%d",inet_ntoa(sa.sin_addr),ntohs(sa.sin_port));
+	getpeername(s,(SOCKADDR *)&sa,&len);
+	printf("close proxy client,%s:%d\n",inet_ntoa(sa.sin_addr),ntohs(sa.sin_port));
 	closesocket(s);
 }
 
@@ -183,33 +185,33 @@ bool ProxyServer::dealClients()
 			uint32 cmd = 0;
 			if (!recvCmd(&cmd,*it))
 			{
-				closesocket(*it);
-				m_clients.erase(it);
+				closeClient(*it);
+				it = m_clients.erase(it);
 				continue;
 			}
 			else
 			{
 				cmd = ntohl_ex(cmd);
-				switch(cmd|0xFF)
+				switch(cmd&0xFF)
 				{
 				case CMD_REQ_BLOCK:
 					if (!sendBlock(*it,cmd>>8))
 					{
-						closesocket(*it);
-						m_clients.erase(it);
+						closeClient(*it);
+						it = m_clients.erase(it);
 						continue;
 					}
 					break;
 				case CMD_SMT_SHARE:
 					if(!recvShare(*it))
 					{
-						closesocket(*it);
-						m_clients.erase(it);
+						closeClient(*it);
+						it = m_clients.erase(it);
 						continue;
 					}
 					break;
 				default:
-					printf("ProxyServer::dealClients unk opt \n");
+					printf("ProxyServer::dealClients unk opt,%d\n",cmd&0xFF);
 					break;
 				}
 			}
@@ -226,6 +228,7 @@ void ProxyServer::sendNewBlock()
 		return;
 
 	uint32 cmd = CMD_NEW_BLOCK;
+	cmd = ntohl_ex(cmd);
 	for (uint32 i = 0;i < m_clients.size();i++)
 	{
 		send(m_clients[i],(char*)&cmd,4,0);

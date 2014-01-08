@@ -9,7 +9,7 @@ int main(int argc, char** argv)
 #endif
 
 	ProxyClient client;
-	client.init("127.0.0.1",10086);
+	client.init("127.0.0.1",10086,1);
 	client.start();
 
 	client.join();

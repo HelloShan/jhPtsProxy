@@ -3,6 +3,7 @@
 
 #include "global.h"
 
+//only for pointer data
 template<typename T>
 class ThreadQueue
 {
@@ -22,8 +23,12 @@ public:
 	void clear()
 	{
 		EnterCriticalSection(&m_mutex);
-		queue<T> tmp;
-		swap(m_queue,tmp);
+		while(!m_queue.empty())
+		{
+			T item = m_queue.front();
+			delete item;
+			m_queue.pop();
+		}
 		LeaveCriticalSection(&m_mutex);
 	}
 
@@ -37,8 +42,11 @@ public:
 	void pop(T &item)
 	{
 		EnterCriticalSection(&m_mutex);
-		item = m_queue.front();
-		m_queue.pop();
+		if(!m_queue.empty())
+		{
+			item = m_queue.front();
+			m_queue.pop();
+		}
 		LeaveCriticalSection(&m_mutex);
 	}
 

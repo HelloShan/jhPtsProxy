@@ -82,7 +82,7 @@ void XptClient::processReceive()
 	FD_SET(m_socket, &r);
 	timeout.tv_sec = 1;
 	timeout.tv_usec =0;
-	ret = select(m_socket+1, &r, 0, 0, &timeout);
+	ret = select((int)m_socket+1, &r, 0, 0, &timeout);
 	if (ret<=0)
 	{
 		//printf("XptClient::processReceive have nothing now\n");

@@ -25,11 +25,12 @@ void inline dumpInt(uint32 &index,uint32 var,char *buf)
 
 void inline dumpStr(uint32 &index,string &str,char *buf)
 {
-	uint8 tmp = str.length();
+	//string must less then 127
+	uint8 tmp = (uint8)str.length();
 	memcpy(buf+index,&tmp,1);
 	index++;
 	memcpy(buf+index,str.c_str(),str.length());
-	index += str.length();
+	index += (uint32)str.length();
 }
 
 
@@ -98,7 +99,7 @@ struct WorkerInfo
 		//dump for send
 		//all string must less than 127
 		//all string have more one byte for record the length
-		uint32 dsize=11+user.length()+pass.length()+version.length();
+		uint32 dsize=11+(uint32)user.length()+pass.length()+version.length();
 		pkglen=(dsize<<8)|XPT_OPC_C_AUTH_REQ;
 		length = dsize+4;
 

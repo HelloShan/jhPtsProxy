@@ -76,4 +76,10 @@ struct WorkData
 
 #pragma pack()
 
+#define CMD_REQ_BLOCK 1
+#define CMD_ACK_BLOCK 2
+#define CMD_SMT_SHARE 3
+#define CMD_ACK_SHARE 4
+#define CMD_NEW_BLOCK 5
+
 #endif //__TYPE_H__
