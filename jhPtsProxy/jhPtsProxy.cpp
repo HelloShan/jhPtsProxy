@@ -6,6 +6,7 @@
 #endif
 
 #include "xptClient.h"
+#include "ProxyServer.h"
 
 
 
@@ -28,7 +29,15 @@ int main(int argc, char** argv)
 
 	//ProxyServer *pServer=new ProxyServer(2899);
 
+	ProxyServer server;
+	if(0 != server.init(10086,&client))
+	{
+		exit(0);
+	}
+	server.start();
+
 	client.join();
+	server.join();
 #ifdef __WIN32__
 	WSACleanup( );
 #endif

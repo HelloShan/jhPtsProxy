@@ -2,7 +2,7 @@
 #include "xptClient.h"
 #include "sha2_interface.h"
 
-int ProxyServer::init(int port,XptClient *xptclient)
+int ProxyServer::init(uint16 port,XptClient *xptclient)
 {
 	m_port = port;
 	m_listen = 0;
@@ -27,6 +27,7 @@ int ProxyServer::init(int port,XptClient *xptclient)
 	m_listen = s;
 	m_xptclient = xptclient;
 	m_wd = NULL;
+	printf("proxy listen port:%d\n",port);
 	return 0;
 }
 
@@ -42,7 +43,7 @@ bool ProxyServer::dealListen()
 	int r = select(m_listen+1, &fd, 0, 0, &sTimeout); 
 	if (r<=0)
 	{
-		printf("ProxyServer::dealListen have nothing\n");
+		//printf("ProxyServer::dealListen have nothing\n");
 		return false;
 	}
 	SOCKADDR addr;
@@ -73,7 +74,7 @@ bool ProxyServer::recvCmd(uint32 *p,SOCKET s)
 		{
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
 			{
-				printf("XptClient::recvOpt error,this client will disconnect\n");
+				printf("ProxyServer::recvCmd error,this client will disconnect\n");
 				return false;
 			}
 		}
@@ -136,7 +137,7 @@ bool ProxyServer::recvShare(SOCKET s)
 		{
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
 			{
-				printf("XptClient::recvOpt error,this client will disconnect\n");
+				printf("ProxyServer::recvShare error,this client will disconnect\n");
 				delete p;
 				return false;
 			}
@@ -145,6 +146,15 @@ bool ProxyServer::recvShare(SOCKET s)
 	}
 	m_xptclient->pushSubmit(p);
 	return true;
+}
+
+void ProxyServer::closeClient(SOCKET s)
+{
+	SOCKADDR sa;
+	int len=sizeof(sa);
+	getpeername(s,&sa,&len);
+	printf("close proxy client,%s:%d",inet_ntoa(sa.sin_addr),ntohs(sa.sin_port));
+	closesocket(s);
 }
 
 bool ProxyServer::dealClients()
@@ -162,7 +172,7 @@ bool ProxyServer::dealClients()
 	int r = select(0, &fd, 0, 0, &sTimeout); 
 	if (r<=0)
 	{
-		printf("ProxyServer::dealClients have nothing\n");
+		//printf("ProxyServer::dealClients have nothing\n");
 		return false;
 	}
 	
@@ -174,7 +184,7 @@ bool ProxyServer::dealClients()
 			if (!recvCmd(&cmd,*it))
 			{
 				closesocket(*it);
-				m_clients.erase(it++);
+				m_clients.erase(it);
 				continue;
 			}
 			else
@@ -186,7 +196,7 @@ bool ProxyServer::dealClients()
 					if (!sendBlock(*it,cmd>>8))
 					{
 						closesocket(*it);
-						m_clients.erase(it++);
+						m_clients.erase(it);
 						continue;
 					}
 					break;
@@ -194,7 +204,7 @@ bool ProxyServer::dealClients()
 					if(!recvShare(*it))
 					{
 						closesocket(*it);
-						m_clients.erase(it++);
+						m_clients.erase(it);
 						continue;
 					}
 					break;

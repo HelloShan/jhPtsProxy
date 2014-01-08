@@ -1,7 +1,7 @@
 #include "xptClient.h"
 
 
-int XptClient::init(string ip,int port)
+int XptClient::init(string ip,uint16 port)
 {
 	m_ip = ip;
 	m_port = port;

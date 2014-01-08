@@ -116,7 +116,7 @@ struct WorkerInfo
 class XptClient:public Thread
 {
 	string m_ip;
-	int m_port;
+	uint16 m_port;
 
 	WorkerInfo *m_pWoker;
 
@@ -133,7 +133,7 @@ public:
 	XptClient(){};
 	virtual ~XptClient(){};
 
-	int init(string ip,int port);
+	int init(string ip,uint16 port);
 
 	virtual	THREAD_FUN  main();
 

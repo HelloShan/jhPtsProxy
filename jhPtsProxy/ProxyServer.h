@@ -17,14 +17,14 @@ class ProxyServer:public Thread
 	vector<SOCKET> m_clients;
 
 	SOCKET m_listen;
-	int m_port;
+	uint16 m_port;
 	XptClient *m_xptclient;
 	WorkData *m_wd;
 public:
 	ProxyServer(){};
 	virtual ~ProxyServer(){};
 	
-	int init(int port,XptClient *xptclient);
+	int init(uint16 port,XptClient *xptclient);
 	
 	virtual	THREAD_FUN  main();
 
@@ -36,6 +36,8 @@ private:
 	bool recvCmd(uint32 *p,SOCKET s);
 	bool sendBlock(SOCKET s,uint32 n);
 	bool recvShare(SOCKET s);
+
+	void closeClient(SOCKET s);
 
 };
 
