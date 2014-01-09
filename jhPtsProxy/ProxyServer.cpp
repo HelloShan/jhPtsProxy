@@ -2,6 +2,8 @@
 #include "xptClient.h"
 #include "sha2_interface.h"
 
+#define SHA2_instance SHA2_INTERFACE::getInstance()
+
 int ProxyServer::init(uint16 port,XptClient *xptclient)
 {
 	m_port = port;
@@ -63,25 +65,44 @@ bool ProxyServer::dealListen()
 
 }
 
-bool ProxyServer::recvCmd(uint32 *p,SOCKET s)
+bool ProxyServer::recvData(uint32 len,char *buf,SOCKET s)
 {
 	uint32 index = 0;
-	uint32 len = 4;
 	int ret = 0;
 	while(index<len)
 	{
-		ret = recv(s,((char*)p)+index,len-index,0);
-		if (ret <= 0)
+		ret = recv(s,buf+index,len-index,0);
+		if (0 == ret/* || SOCKET_ERROR == ret*/)
 		{
+			return false;
+		}
+		if (ret < 0)
+		{
+			int n = WSAGetLastError();
+			//WSAENETRESET,WSAECONNABORTED,WSAECONNRESET
+			if (n >=10052 && n <= 10054)
+			{
+				return false;
+			}
+			continue;
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
 			{
 				//printf("ProxyServer::recvCmd error,this client will disconnect\n");
 				return false;
 			}
-		}
+		}/*
+		if (ret == 0)
+		{
+			//return false;
+		}*/
 		index += ret;
 	}
 	return true;
+}
+
+bool ProxyServer::recvCmd(uint32 *p,SOCKET s)
+{
+	return recvData(4,(char*)p,s);
 }
 
 bool ProxyServer::sendBlock(SOCKET s,uint32 n)
@@ -103,18 +124,27 @@ bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 	}
 	uint32 cmd = (n<<8)|CMD_ACK_BLOCK;
 	cmd = ntohl_ex(cmd);
-	send(s,(char*)&cmd,4,0);
+	if (send(s,(char*)&cmd,4,0) <= 0)
+	{
+		printf("ProxyServer::sendBlock send cmd error!!!!!\n");
+	}
+	printf("ProxyServer::sendBlock send cmd,%08X\n",cmd);
 	memcpy(transactionData,m_wd->coinBase1,m_wd->coinBase1Size);
 	memcpy(transactionData+m_wd->coinBase1Size+4,m_wd->coinBase2,m_wd->coinBase2Size);
+	m_wd->block.uniqueMerkleSeed = ntohl_ex(seed);
 	for(uint32 i=0;i<n;i++)
 	{
 		memcpy(transactionData+m_wd->coinBase1Size,&seed,4);
 		
 		seed++;
-		SHA2_INTERFACE::instance->SHA2_sha256(transactionData,transactionDataLength,m_wd->block.merkleRoot);
-		SHA2_INTERFACE::instance->SHA2_sha256(m_wd->block.merkleRoot,32,m_wd->block.merkleRoot);
+		SHA2_instance->SHA2_sha256(transactionData,transactionDataLength,m_wd->block.merkleRoot);
+		SHA2_instance->SHA2_sha256(m_wd->block.merkleRoot,32,m_wd->block.merkleRoot);
 		
-		send(s,(char*)&m_wd->block,sizeof(BlockInfo),0);
+		if(send(s,(char*)&m_wd->block,sizeof(BlockInfo),0) <=0)
+		{
+			printf("ProxyServer::sendBlock send block error!!!!!\n");
+		}
+		printf("ProxyServer::sendBlock send one block info,height %d\n",ntohl_ex(m_wd->block.height));
 	}
 
 	delete[] transactionData;
@@ -123,28 +153,16 @@ bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 
 bool ProxyServer::recvShare(SOCKET s)
 {
-	uint32 index = 0;
-	uint32 len = sizeof(SubmitInfo);
-	int ret = 0;
 	SubmitInfo *p = new SubmitInfo();
 	if (!p)
 	{
 		printf("ProxyServer::recvShare memory error\n");
 		return false;
 	}
-	while(index<len)
+	if (!recvData(sizeof(SubmitInfo),(char*)p,s))
 	{
-		ret = recv(s,((char*)p)+index,len-index,0);
-		if (ret <= 0)
-		{
-			if( WSAGetLastError() != WSAEWOULDBLOCK )
-			{
-				//printf("ProxyServer::recvShare error,this client will disconnect\n");
-				delete p;
-				return false;
-			}
-		}
-		index += ret;
+		delete p;
+		return false;
 	}
 	m_xptclient->pushSubmit(p);
 	return true;
@@ -231,7 +249,11 @@ void ProxyServer::sendNewBlock()
 	cmd = ntohl_ex(cmd);
 	for (uint32 i = 0;i < m_clients.size();i++)
 	{
-		send(m_clients[i],(char*)&cmd,4,0);
+		if (send(m_clients[i],(char*)&cmd,4,0) <= 0)
+		{
+			printf("ProxyServer::sendNewBlock send error\n");
+		}
+		printf("ProxyServer::sendNewBlock cmd:%08X\n",cmd);
 	}
 }
 
@@ -246,19 +268,19 @@ THREAD_FUN ProxyServer::main()
 				break;
 		}
 
-		if (m_xptclient->CheakNewWork())
+		WorkData *p=m_xptclient->getWorkData();
+		if (p)
 		{
 			if (m_wd)
 			{
 				delete m_wd;
 			}
-			WorkData *p=m_xptclient->getWorkData();
-			if (p)
-			{
-				m_wd = p;
-			}
+			m_wd = p;
 			//proxy client need to clear work queue
-			sendNewBlock();
+			if (m_wd)
+			{
+				sendNewBlock();
+			}			
 		}
 
 		if (!m_clients.empty())

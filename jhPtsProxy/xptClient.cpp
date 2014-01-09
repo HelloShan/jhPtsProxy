@@ -7,9 +7,8 @@ int XptClient::init(string ip,uint16 port)
 	m_port = port;
 	m_socket = 0;
 	m_pWoker = new WorkerInfo();
-	m_pWD = new WorkData();
+	m_pWD = NULL;
 	InitializeCriticalSection(&m_wdcs);
-	m_newwd = false;
 	return 0;
 }
 
@@ -71,6 +70,40 @@ void XptClient::processSubmit()
 		delete info;
 	}
 }
+bool XptClient::recvData(uint32 len,char *buf,SOCKET s)
+{
+	uint32 index = 0;
+	int ret = 0;
+	while(index<len)
+	{
+		ret = recv(s,buf+index,len-index,0);
+		if (0 == ret/* || SOCKET_ERROR == ret*/)
+		{
+			return false;
+		}
+		if (ret < 0)
+		{
+			int n = WSAGetLastError();
+			//WSAENETRESET,WSAECONNABORTED,WSAECONNRESET
+			if (n >=10052 && n <= 10054)
+			{
+				return false;
+			}
+			continue;
+			if( WSAGetLastError() != WSAEWOULDBLOCK )
+			{
+				//printf("ProxyServer::recvCmd error,this client will disconnect\n");
+				return false;
+			}
+		}/*
+		if (ret == 0)
+		{
+			//return false;
+		}*/
+		index += ret;
+	}
+	return true;
+}
 
 void XptClient::processReceive()
 {
@@ -90,22 +123,14 @@ void XptClient::processReceive()
 	}
 
 	uint32 head = 0;
-	uint32 index = 0;
-	uint32 len = 4;
-	while(index<len)
+	uint32 len = 0;
+	if (!recvData(4,(char*)&head,m_socket))
 	{
-		ret = recv(m_socket,((char*)&head)+index,len-index,0);
-		if (ret <= 0)
-		{
-			if( WSAGetLastError() != WSAEWOULDBLOCK )
-			{
-				printf("XptClient::processReceive recv head error,will disconnect\n");
-				closeConnection();
-				return;
-			}
-		}
-		index += ret;
+		printf("XptClient::processReceive recv head error,will disconnect\n");
+		closeConnection();
+		return;
 	}
+
 	head = ntohl_ex(head);
 
 	len = head>>8;
@@ -118,21 +143,12 @@ void XptClient::processReceive()
 		return;
 	}
 
-	index = 0;
-	while(index<len)
+	if (!recvData(len,pbuf,m_socket))
 	{
-		ret = recv(m_socket,pbuf+index,len-index,0);
-		if (ret <= 0)
-		{
-			if( WSAGetLastError() != WSAEWOULDBLOCK )
-			{
-				printf("XptClient::processReceive redv buff error,will disconnect\n");
-				closeConnection();
-				delete[] pbuf;
-				return;
-			}
-		}
-		index += ret;
+		printf("XptClient::processReceive recv buff error,will disconnect\n");
+		closeConnection();
+		delete[] pbuf;
+		return;
 	}
 	
 	switch(opt)
@@ -226,28 +242,26 @@ void XptClient::dealWorkData(uint32 len,const char *pbuf)
 	}
 
 	EnterCriticalSection(&m_wdcs);
-	memcpy(m_pWD,&wd,sizeof(WorkData));
-	m_newwd = true;
+	if (m_pWD)
+	{
+		delete m_pWD;
+		m_pWD = NULL;
+	}
+	m_pWD = new WorkData();
+	if (m_pWD)
+	{
+		memcpy((char*)m_pWD,(char*)&wd,sizeof(WorkData));
+	}
 	LeaveCriticalSection(&m_wdcs);
 }
 
 WorkData *XptClient::getWorkData()
 {
-	if (m_newwd)
-	{
-		WorkData *p_wd = new WorkData();
-		EnterCriticalSection(&m_wdcs);
-		memcpy(m_pWD,p_wd,sizeof(WorkData));
-		m_newwd = false;
-		LeaveCriticalSection(&m_wdcs);
-		return p_wd;
-	}
-	return NULL;
-}
-
-bool XptClient::CheakNewWork()
-{
-	return m_newwd;
+	EnterCriticalSection(&m_wdcs);
+	WorkData *p = m_pWD;
+	m_pWD = NULL;
+	LeaveCriticalSection(&m_wdcs);
+	return p;
 }
 
 void XptClient::pushSubmit(SubmitInfo *p)

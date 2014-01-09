@@ -128,7 +128,6 @@ class XptClient:public Thread
 
 	ThreadQueue<SubmitInfo*> m_queue;
 
-	volatile bool m_newwd;
 	//queue<
 public:
 	XptClient(){};
@@ -152,6 +151,8 @@ private:
 	void dealWorkData(uint32 len,const char *pbuf);
 	void dealShareACK(uint32 len,const char *pbuf);
 	void dealMsg(uint32 len,const char *pbuf);
+
+	bool recvData(uint32 len,char *buf,SOCKET s);
 };
 
 #endif //__XPT_CLIENT_H__

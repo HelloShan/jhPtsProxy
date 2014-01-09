@@ -77,14 +77,30 @@ bool ProxyClient::recvData(uint32 len,char *buf)
 	while(index<len)
 	{
 		ret = recv(m_socket,buf+index,len-index,0);
-		if (ret <= 0)
+		if (0 == ret /* || SOCKET_ERROR == ret*/)
 		{
+			return false;
+		}
+		if (ret < 0)
+		{
+			int n = WSAGetLastError();
+			//WSAENETRESET,WSAECONNABORTED,WSAECONNRESET
+			if (n >=10052 && n <= 10054)
+			{
+				return false;
+			}
+			continue;
+
 			if( WSAGetLastError() != WSAEWOULDBLOCK )
 			{
 				//printf("ProxyServer::recvCmd error,this client will disconnect\n");
 				return false;
 			}
-		}
+		}/*
+		if (ret == 0)
+		{
+			//return false;
+		}*/
 		index += ret;
 	}
 	return true;
@@ -105,6 +121,7 @@ bool ProxyClient::recvBlockInfo(uint32 n)
 			delete pBlock;
 			return false;
 		}
+		printf("recv a new block,height:%d\n",ntohl_ex(pBlock->height));
 		m_block.push(pBlock);
 	}
 	return true;
@@ -134,18 +151,21 @@ bool ProxyClient::dealRecv()
 	uint32 cmd = 0;
 	if (!recvData(4,(char*)&cmd))
 	{
+		printf("ProxyClient::dealRecv recv cmd error\n");
 		return false;
 	}
 	cmd = ntohl_ex(cmd);
 	switch(cmd&0xFF)
 	{
 	case CMD_ACK_BLOCK:
+		printf("ProxyClient::dealRecv recv CMD_ACK_BLOCK cmd:%08X\n",cmd);
 		return recvBlockInfo(cmd>>8);
 	case CMD_NEW_BLOCK:
+		printf("ProxyClient::dealRecv recv CMD_NEW_BLOCK cmd:%08X\n",cmd);
 		clearBlockInfo();
 		break;
 	default:
-		printf("ProxyClient::dealRecv unk cmd error,%d\n",cmd&0xFF);
+		printf("ProxyClient::dealRecv recv unk cmd error,%08X\n",cmd);
 		return false;
 	}
 	return true;
@@ -159,6 +179,7 @@ bool ProxyClient::requestBlock()
 		uint32 cmd=(m_threadnum<<8)|CMD_REQ_BLOCK;
 		cmd = ntohl_ex(cmd);
 		send(m_socket,(char*)&cmd,4,0);
+		printf("ProxyClient::requestBlock send CMD_REQ_BLOCK cmd,%08X\n",cmd);
 	}
 	return true;
 }
@@ -195,7 +216,7 @@ THREAD_FUN ProxyClient::main()
 			continue;
 		}
 
-		Sleep(5);
+		Sleep(100);
 	}
 	return 0;
 }

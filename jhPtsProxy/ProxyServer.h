@@ -33,6 +33,7 @@ private:
 	bool recvShare(SOCKET s);
 
 	void closeClient(SOCKET s);
+	bool recvData(uint32 len,char *buf,SOCKET s);
 
 };
 
