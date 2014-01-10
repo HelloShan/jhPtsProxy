@@ -34,10 +34,8 @@ int	Thread::start()
 	}
 #else
 	//const 	type_info& tData = typeid( *this ) ;
-	char 	szLog[MAX_PATH];
 
 	pthread_attr_t attr;
-	size_t pthreadStackSize;
 
 	pthread_attr_init(&attr); /* initialize attr with default attributes */
 	

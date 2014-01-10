@@ -18,8 +18,6 @@
 #include <queue>
 using namespace std;
 
-#include "type.h"
-
 
 #if defined __BIG_ENDIAN__ || defined _BIG_ENDIAN
 #define CHAR uint8
@@ -118,5 +116,111 @@ static inline UINT64 ntohll_ex(UINT64 data)
 #define     ntohll_ex(value) (value)  
 #endif //__BIG_ENDIAN__
 
+
+typedef unsigned char 		uint8;
+typedef unsigned short		uint16;
+typedef unsigned int 		uint32;
+typedef unsigned long long 	uint64;
+
+typedef signed char 		sint8;
+typedef signed short 		sint16;
+typedef signed int 			sint32;
+typedef signed long long 	sint64;
+
+#define CMD_REQ_BLOCK 1
+#define CMD_ACK_BLOCK 2
+#define CMD_SMT_SHARE 3
+#define CMD_ACK_SHARE 4
+#define CMD_NEW_BLOCK 5
+
+// list of known opcodes
+#define XPT_OPC_C_AUTH_REQ		1
+#define XPT_OPC_S_AUTH_ACK		2
+#define XPT_OPC_S_WORKDATA1		3
+#define XPT_OPC_C_SUBMIT_SHARE	4
+#define XPT_OPC_S_SHARE_ACK		5
+#define XPT_OPC_C_SUBMIT_POW	6
+#define XPT_OPC_S_MESSAGE		7
+
+#pragma pack(1)
+
+struct BlockInfo
+{
+	// block header data (relevant for midhash)
+	uint32	version;
+	uint8	prevBlockHash[32];
+	uint8	merkleRoot[32];
+	uint32	nTime;
+	uint32	nBits;
+	uint32	nonce;
+	// birthday collision
+	uint32	birthdayA;
+	uint32	birthdayB;
+	uint32	uniqueMerkleSeed;
+
+	uint32	height;
+	uint8	merkleRootOriginal[32]; // used to identify work
+	// target
+	uint8   target[32];
+	uint8	targetShare[32];
+};
+
+
+struct SubmitInfo
+{
+	// block header data (relevant for midhash)
+	uint32	head;
+	uint8	merkleRoot[32];
+	uint8	prevBlockHash[32];
+	uint32	version;
+	uint32	nTime;
+	uint32	nonce;
+	uint32	nBits;
+	// birthday collision
+	uint32	birthdayA;
+	uint32	birthdayB;
+
+	uint8	merkleRootOriginal[32]; // used to identify work
+	uint8   uniqueMerkleSeedLen;   //always 4
+	uint32  uniqueMerkleSeed;
+	uint32  shareid;
+
+	SubmitInfo(BlockInfo *block)
+	{
+		head = ntohl_ex(((sizeof(SubmitInfo)-4)<<8)|XPT_OPC_C_SUBMIT_SHARE);
+		memcpy(merkleRoot,block->merkleRoot,32);
+		memcpy(prevBlockHash,block->prevBlockHash,32);
+		memcpy(&version,&block->version,4);
+		memcpy(&nTime,&block->nTime,4);
+		memcpy(&nonce,&block->nonce,4);
+		memcpy(&nBits,&block->nBits,4);
+		memcpy(&birthdayA,&block->birthdayA,4);
+		memcpy(&birthdayB,&block->birthdayB,4);
+		memcpy(merkleRootOriginal,block->merkleRootOriginal,32);
+		uniqueMerkleSeedLen = 4;
+		memcpy(&uniqueMerkleSeed,&block->uniqueMerkleSeed,4);
+		shareid = 0;
+	}
+
+	SubmitInfo()
+	{
+		head = ntohl_ex(((sizeof(SubmitInfo)-4)<<8)|XPT_OPC_C_SUBMIT_SHARE);
+	}
+};
+
+struct WorkData
+{
+	BlockInfo block;
+
+	// coinbase & tx info
+	uint16 coinBase1Size;
+	uint8 coinBase1[512];
+	uint16 coinBase2Size;
+	uint8 coinBase2[512];
+	uint16 txHashCount;
+	uint8 txHashes[32*16];
+};
+
+#pragma pack()
 
 #endif //__GLOBLE_H__

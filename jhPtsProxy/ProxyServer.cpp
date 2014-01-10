@@ -42,7 +42,7 @@ bool ProxyServer::dealListen()
 	FD_ZERO(&fd);
 	FD_SET(m_listen,&fd);
 	
-	int r = select((int)m_listen+1, &fd, 0, 0, &sTimeout); 
+	int r = select(m_listen+1, &fd, 0, 0, &sTimeout); 
 	if (r<=0)
 	{
 		//printf("ProxyServer::dealListen have nothing\n");
@@ -82,6 +82,7 @@ bool ProxyServer::recvData(uint32 len,char *buf,SOCKET s)
 			//WSAENETRESET,WSAECONNABORTED,WSAECONNRESET
 			if (n >=10052 && n <= 10054)
 			{
+				printf("ProxyServer::recvData error,%d\n",n);
 				return false;
 			}
 			continue;
@@ -128,12 +129,12 @@ bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 	{
 		printf("ProxyServer::sendBlock send cmd error!!!!!\n");
 	}
-	printf("ProxyServer::sendBlock send cmd,%08X\n",cmd);
+	//printf("ProxyServer::sendBlock send cmd,%08X\n",cmd);
 	memcpy(transactionData,m_wd->coinBase1,m_wd->coinBase1Size);
 	memcpy(transactionData+m_wd->coinBase1Size+4,m_wd->coinBase2,m_wd->coinBase2Size);
-	m_wd->block.uniqueMerkleSeed = ntohl_ex(seed);
 	for(uint32 i=0;i<n;i++)
 	{
+		m_wd->block.uniqueMerkleSeed = ntohl_ex(seed);
 		memcpy(transactionData+m_wd->coinBase1Size,&seed,4);
 		
 		seed++;
@@ -144,7 +145,7 @@ bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 		{
 			printf("ProxyServer::sendBlock send block error!!!!!\n");
 		}
-		printf("ProxyServer::sendBlock send one block info,height %d\n",ntohl_ex(m_wd->block.height));
+		//printf("ProxyServer::sendBlock send one block info,height %d\n",ntohl_ex(m_wd->block.height));
 	}
 
 	delete[] transactionData;
@@ -184,12 +185,17 @@ bool ProxyServer::dealClients()
 	timeval sTimeout;
 	sTimeout.tv_sec = 0;
 	sTimeout.tv_usec = 250000;
+	SOCKET max_s = 0;
 	for (uint32 i = 0;i < m_clients.size();i++)
 	{
+		if (m_clients[i]>max_s)
+		{
+			max_s = m_clients[i];
+		}
 		FD_SET(m_clients[i],&fd);
 	}
 
-	int r = select(0, &fd, 0, 0, &sTimeout); 
+	int r = select(max_s+1, &fd, 0, 0, &sTimeout); 
 	if (r<=0)
 	{
 		//printf("ProxyServer::dealClients have nothing\n");
@@ -288,7 +294,7 @@ THREAD_FUN ProxyServer::main()
 			dealClients();
 		}
 
-		Sleep(10);
+		Sleep(1);
 	}
 
 	return 0;

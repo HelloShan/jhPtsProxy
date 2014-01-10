@@ -25,7 +25,7 @@ typedef uint32_t *LPDWORD;
 typedef int SOCKET;
 typedef struct sockaddr_in SOCKADDR_IN;
 typedef struct sockaddr SOCKADDR;
-//typedef fd_set FD_SET;
+typedef fd_set FD_SET;
 
 typedef void *WSADATA;
 #define WSAStartup(a, b)

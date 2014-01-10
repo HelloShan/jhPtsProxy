@@ -6,15 +6,6 @@
 #include "ThreadQueue.h"
 
 
-// list of known opcodes
-#define XPT_OPC_C_AUTH_REQ		1
-#define XPT_OPC_S_AUTH_ACK		2
-#define XPT_OPC_S_WORKDATA1		3
-#define XPT_OPC_C_SUBMIT_SHARE	4
-#define XPT_OPC_S_SHARE_ACK		5
-#define XPT_OPC_C_SUBMIT_POW	6
-#define XPT_OPC_S_MESSAGE		7
-
 
 void inline dumpInt(uint32 &index,uint32 var,char *buf)
 {

@@ -16,6 +16,9 @@ class ProxyClient:public Thread
 	ThreadQueue<SubmitInfo*> m_submit;
 	ThreadQueue<BlockInfo*> m_block;
 
+	volatile uint32 m_height;
+
+	bool m_havereq;
 public:
 	ProxyClient(){}
 	virtual ~ProxyClient(){}
@@ -24,6 +27,15 @@ public:
 
 	virtual THREAD_FUN main();
 	BlockInfo *getBlockInfo();
+
+	uint32 getCurHeight()
+	{
+		return m_height;
+	}
+
+	void pushShare(SubmitInfo *p);
+	bool haveEnoughBlock();
+
 private:
 	void openConnection();
 	void closeConnection();

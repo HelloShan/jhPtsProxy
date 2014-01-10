@@ -56,7 +56,7 @@ void XptClient::sendWorkerLogin()
 
 void XptClient::processSubmit()
 {
-	while (!m_queue.empty())
+/*	while (!m_queue.empty())
 	{
 		SubmitInfo *info=NULL;
 		m_queue.pop(info);
@@ -67,8 +67,14 @@ void XptClient::processSubmit()
 			delete info;
 			return;
 		}
+
 		delete info;
-	}
+	}*/
+	
+	SubmitInfo test;
+	send(m_socket,(char*)&test,sizeof(SubmitInfo), 0);
+	printf("send one test share\n");
+	
 }
 bool XptClient::recvData(uint32 len,char *buf,SOCKET s)
 {
@@ -87,6 +93,7 @@ bool XptClient::recvData(uint32 len,char *buf,SOCKET s)
 			//WSAENETRESET,WSAECONNABORTED,WSAECONNRESET
 			if (n >=10052 && n <= 10054)
 			{
+				printf("ProxyServer::recvData error,%d\n",n);
 				return false;
 			}
 			continue;
@@ -126,7 +133,7 @@ void XptClient::processReceive()
 	uint32 len = 0;
 	if (!recvData(4,(char*)&head,m_socket))
 	{
-		printf("XptClient::processReceive recv head error,will disconnect\n");
+		//printf("XptClient::processReceive recv head error,will disconnect\n");
 		closeConnection();
 		return;
 	}
@@ -188,7 +195,7 @@ void XptClient::dealAuthACK(uint32 len,const char *pbuf)
 	}
 	
 	if (authCode != 0)
-		printf("login with %s failedreason %s\n",m_pWoker->user.c_str(),reason.c_str());
+		printf("login with %s failed,reason %s\n",m_pWoker->user.c_str(),reason.c_str());
 	else
 		printf("login with %s success\n",m_pWoker->user.c_str());
 }
@@ -284,8 +291,14 @@ void XptClient::dealShareACK(uint32 len,const char *pbuf)
 		return;
 	}
 	
-	if (shareErrorCode != 0)
+	if (shareErrorCode != 0)		
+	{
 		printf("Invalid share,reason %s\n",reason.c_str());
+	}
+	else
+	{
+		printf("one valid share\n");
+	}
 }
 
 void XptClient::dealMsg(uint32 len,const char *pbuf)

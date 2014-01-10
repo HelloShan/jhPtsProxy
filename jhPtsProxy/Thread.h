@@ -8,6 +8,7 @@
 #define THREAD_FUN DWORD WINAPI
 #else
 #include <pthread.h>
+#include <signal.h>
 #define THREAD_FUN void*
 #endif//__WIN32__
 #endif//THREAD_FUN

@@ -19,20 +19,18 @@ class SHA2_INTERFACE
 	{
 		m_type = t;
 	}
-
+	static SHA2_INTERFACE *instance;
 public:
 	virtual ~SHA2_INTERFACE()
 	{
 
 	}
 
-	static SHA2_INTERFACE *instance;
-
 	static SHA2_INTERFACE *getInstance(USE_SHA512_TYPE t=USE_DEFAULT_SHA512)
 	{
 		if (!instance)
 		{
-			return new SHA2_INTERFACE(t);
+			instance = new SHA2_INTERFACE(t);
 		}
 		return instance;
 	}
@@ -50,6 +48,7 @@ public:
 		if (m_type == USE_DEFAULT_SHA512)
 		{
 			sha512_ctx c512;
+			sha512_init(&c512);
 			sha512_update_final(&c512,(const unsigned char *)msg,len,(unsigned char *)dst);
 		}
 		else
