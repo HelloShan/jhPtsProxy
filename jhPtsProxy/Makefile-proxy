@@ -1,0 +1,19 @@
+
+obj=jhPtsProxy.o xptClient.o ProxyServer.o sha2.o sha2_interface.o Thread.o win.o
+
+app=jhPtsProxy
+
+all: $(app)
+
+.c.o:
+	$(CC) $(CFLAGS)  -O3 -Wall -msse4 -c -o  $@ $<
+.cpp.o: 
+	$(CXX) $(CFLAGS)  -O3 -Wall -msse4 -c -o $@ $<
+
+jhPtsProxy: $(obj)
+	$(CXX) $(LDFLAGS) -o $@ $(obj)  -lpthread -lstdc++
+
+clean:
+	$(RM) *.o $(app)
+
+.PHONY: all clean
