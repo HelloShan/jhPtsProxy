@@ -54,6 +54,11 @@ public:
 	{
 		return m_queue.empty();
 	}
+
+	uint32 size()
+	{
+		return m_queue.size();
+	}
 };
 
 #endif//__THREAD_QUEUE_H__

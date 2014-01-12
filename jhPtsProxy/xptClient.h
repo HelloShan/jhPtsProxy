@@ -46,8 +46,8 @@ void inline getInt8(uint32 &index,uint8& var,const char *buf)
 void inline getStr(uint32 &index,string &str,const char *buf)
 {
 	str = "";
-	uint8 len = *(uint8*)(buf+index);
-	index++;
+	uint16 len = *(uint16*)(buf+index);
+	index += 2;
 	if (len>0)
 	{
 		char *pTmp = new char[len+1];
@@ -79,10 +79,10 @@ struct WorkerInfo
 	char buf[1024];
 	uint32 length;
 
-	WorkerInfo()
+	WorkerInfo(string &u)
 	{
 		unkn = 5;
-		user = "PsADEvP6kBevQD2fkRUZxmvuNJZe5u7W8k";
+		user = u;//"PsADEvP6kBevQD2fkRUZxmvuNJZe5u7W8k";
 		pass = "x";
 		pln = 1;
 		version = "jhProtominer v0.1c-Linux";
@@ -120,17 +120,31 @@ class XptClient:public Thread
 	ThreadQueue<SubmitInfo*> m_queue;
 
 	//queue<
-public:
 	XptClient(){};
 	virtual ~XptClient(){};
+	static XptClient *instance;
+public:
 
-	int init(string ip,uint16 port);
+	static XptClient *getInstance()
+	{
+		if (!instance)
+		{
+			instance = new XptClient();
+		}
+		return instance;
+	}
+
+	int init(string ip,uint16 port,string &u);
 
 	virtual	THREAD_FUN  main();
 
 	WorkData *getWorkData();
 	bool CheakNewWork();
 	void pushSubmit(SubmitInfo *p);
+
+	static volatile uint32 valid_share;
+	static volatile uint32 invalid_share;
+	static string last_reason;
 private:
 	void openConnection();
 	void closeConnection();

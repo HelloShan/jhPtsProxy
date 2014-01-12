@@ -4,6 +4,7 @@
 #include "global.h"
 #include "Thread.h"
 #include "ThreadQueue.h"
+#include "sha2_interface.h"
 
 
 class XptClient;
@@ -15,11 +16,21 @@ class ProxyServer:public Thread
 	uint16 m_port;
 	XptClient *m_xptclient;
 	WorkData *m_wd;
-public:
+	SHA2_FUNC sha256_func;
 	ProxyServer(){};
 	virtual ~ProxyServer(){};
-	
-	int init(uint16 port,XptClient *xptclient);
+	static ProxyServer *instance;
+public:
+	static ProxyServer *getInstance()
+	{
+		if (!instance)
+		{
+			instance = new ProxyServer();
+		}
+		return instance;
+	}
+
+	int init(uint16 port);
 	
 	virtual	THREAD_FUN  main();
 

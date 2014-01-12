@@ -1,5 +1,8 @@
 #include "ProxyClient.h"
 
+ProxyClient *ProxyClient::instance=0;
+volatile uint32 ProxyClient::cur_height=0;
+
 bool ProxyClient::init(string ip,uint16 port,uint32 threadnum)
 {
 	m_ip = ip;
@@ -131,7 +134,7 @@ bool ProxyClient::recvBlockInfo(uint32 n)
 		//printf("recv a new block,height:%d\n",ntohl_ex(pBlock->height));
 		if (i == 0)
 		{
-			m_height = pBlock->height;
+			cur_height = pBlock->height;
 		}		
 		m_block.push(pBlock);
 	}
@@ -186,7 +189,7 @@ bool ProxyClient::dealRecv()
 
 bool ProxyClient::requestBlock()
 {
-	if (m_block.empty())
+	if (m_block.size()<m_threadnum)
 	{
 		uint32 cmd=(m_threadnum<<8)|CMD_REQ_BLOCK;
 		cmd = ntohl_ex(cmd);

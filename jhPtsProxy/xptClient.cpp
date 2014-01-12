@@ -1,12 +1,17 @@
 #include "xptClient.h"
 
+XptClient *XptClient::instance=0;
 
-int XptClient::init(string ip,uint16 port)
+volatile uint32 XptClient::valid_share = 0;
+volatile uint32 XptClient::invalid_share = 0;
+string XptClient::last_reason = "";
+
+int XptClient::init(string ip,uint16 port,string &u)
 {
 	m_ip = ip;
 	m_port = port;
 	m_socket = 0;
-	m_pWoker = new WorkerInfo();
+	m_pWoker = new WorkerInfo(u);
 	m_pWD = NULL;
 	InitializeCriticalSection(&m_wdcs);
 	return 0;
@@ -56,7 +61,7 @@ void XptClient::sendWorkerLogin()
 
 void XptClient::processSubmit()
 {
-/*	while (!m_queue.empty())
+	while (!m_queue.empty())
 	{
 		SubmitInfo *info=NULL;
 		m_queue.pop(info);
@@ -69,11 +74,11 @@ void XptClient::processSubmit()
 		}
 
 		delete info;
-	}*/
+	}
 	
-	SubmitInfo test;
+/*	SubmitInfo test;
 	send(m_socket,(char*)&test,sizeof(SubmitInfo), 0);
-	printf("send one test share\n");
+	printf("send one test share\n");*/
 	
 }
 bool XptClient::recvData(uint32 len,char *buf,SOCKET s)
@@ -211,7 +216,7 @@ void XptClient::dealWorkData(uint32 len,const char *pbuf)
 	getData(index,wd.block.targetShare,32,pbuf);
 	getInt32(index,wd.block.nTime,pbuf);
 	getData(index,wd.block.prevBlockHash,32,pbuf);
-	getData(index,wd.block.merkleRoot,32,pbuf);
+	getData(index,wd.block.merkleRootOriginal,32,pbuf);
 	getInt16(index,wd.coinBase1Size,pbuf);
 	if (wd.coinBase1Size > 512)
 	{
@@ -293,11 +298,14 @@ void XptClient::dealShareACK(uint32 len,const char *pbuf)
 	
 	if (shareErrorCode != 0)		
 	{
-		printf("Invalid share,reason %s\n",reason.c_str());
+		//printf("Invalid share,reason %s\n",reason.c_str());
+		invalid_share++;
+		last_reason = reason;
 	}
 	else
 	{
-		printf("one valid share\n");
+		//printf("one valid share\n");
+		valid_share++;
 	}
 }
 
@@ -342,4 +350,5 @@ THREAD_FUN XptClient::main()
 			processReceive();
 		}
 	}
+	return 0;
 }

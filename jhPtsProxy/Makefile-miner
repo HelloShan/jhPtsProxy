@@ -1,7 +1,7 @@
 
-obj=jhPtsMiner.o MinerThread.o ProxyClient.o sha2.o sha2_interface.o Thread.o win.o
+obj=jhPtsMiner.o MinerThread.o ProxyClient.o sha2.o sha2_interface.o Thread.o win.o sha512_avx.o sha512_sse4.o sha512.o cpuid.o
 
-app=jhProxyMiner
+app=jhPtsMiner
 
 all: $(app)
 
@@ -9,8 +9,10 @@ all: $(app)
 	$(CC) $(CFLAGS)  -O3 -Wall -msse4 -c -o  $@ $<
 .cpp.o: 
 	$(CXX) $(CFLAGS)  -O3 -Wall -msse4 -c -o $@ $<
+%.o: intel/%.asm
+	yasm -f elf64 -o $@ $<
 
-jhProxyMiner: $(obj)
+jhPtsMiner: $(obj)
 	$(CXX) $(LDFLAGS) -o $@ $(obj)  -lpthread -lstdc++
 
 clean:

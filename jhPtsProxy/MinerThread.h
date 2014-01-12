@@ -2,6 +2,8 @@
 #define __MINER_THREAD_H__
 #include "global.h"
 #include "Thread.h"
+#include "sha2_interface.h"
+#include "ThreadQueue.h"
 
 
 #define MAX_MOMENTUM_NONCE		(1<<26)	// 67.108.864
@@ -22,22 +24,33 @@ class MinerThread:public Thread
 
 	uint32 *m_collisionMap;
 
-	uint32 totalCollisionCount;
-	uint32 totalShareCount;
+	//stat
+	bool m_bStat;
+	bool m_bCheckHeight;
 
-	ProxyClient *m_client;
 	uint32 m_id;
+
+	SHA2_FUNC sha256_func;
+	SHA2_FUNC sha512_func;
+
+	//ThreadQueue<BlockInfo*> m_block;
+	ProxyClient *m_client;
 public:
 	MinerThread(){}
 	virtual ~MinerThread(){}
 
-	bool init(uint32 bits,ProxyClient *client,uint32 threadid);
+	static volatile uint32 totalCollisionCount;
+	static volatile uint32 totalShareCount;
+
+	bool init(uint32 bits,uint32 threadid,bool bStat,bool bCheckHeight);
+	void uinit();
 	virtual THREAD_FUN main();
 
 private:
 	void protoshares_process(BlockInfo *block);
 	bool protoshares_revalidateCollision(BlockInfo* block, uint8* midHash, uint32 indexA, uint32 indexB);
 	void submitShare(BlockInfo *block);
+	//BlockInfo *getBlockInfo();
 
 };
 

@@ -6,6 +6,7 @@
 #pragma comment(lib,"Ws2_32.lib")
 #include<Winsock2.h>
 #include<ws2tcpip.h>
+#define socklen_t int
 #else
 #include"win.h" // port from windows
 #endif

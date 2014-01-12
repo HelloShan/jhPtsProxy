@@ -2,9 +2,8 @@
 #include "xptClient.h"
 #include "sha2_interface.h"
 
-#define SHA2_instance SHA2_INTERFACE::getInstance()
-
-int ProxyServer::init(uint16 port,XptClient *xptclient)
+ProxyServer *ProxyServer::instance=0;
+int ProxyServer::init(uint16 port)
 {
 	m_port = port;
 	m_listen = 0;
@@ -27,8 +26,9 @@ int ProxyServer::init(uint16 port,XptClient *xptclient)
 		return -1;
 	}
 	m_listen = s;
-	m_xptclient = xptclient;
+	m_xptclient = XptClient::getInstance();
 	m_wd = NULL;
+	sha256_func = SHA2_INTERFACE::getInstance()->getSHA2_256();
 	printf("proxy listen port:%d\n",port);
 	return 0;
 }
@@ -49,7 +49,7 @@ bool ProxyServer::dealListen()
 		return false;
 	}
 	SOCKADDR_IN addr;
-	int len=sizeof(SOCKADDR_IN);
+	socklen_t len=sizeof(SOCKADDR_IN);
 	SOCKET s = accept(m_listen, (SOCKADDR*)&addr, &len);
 
 	// set socket as non-blocking
@@ -138,8 +138,8 @@ bool ProxyServer::sendBlock(SOCKET s,uint32 n)
 		memcpy(transactionData+m_wd->coinBase1Size,&seed,4);
 		
 		seed++;
-		SHA2_instance->SHA2_sha256(transactionData,transactionDataLength,m_wd->block.merkleRoot);
-		SHA2_instance->SHA2_sha256(m_wd->block.merkleRoot,32,m_wd->block.merkleRoot);
+		sha256_func(transactionData,transactionDataLength,m_wd->block.merkleRoot);
+		sha256_func(m_wd->block.merkleRoot,32,m_wd->block.merkleRoot);
 		
 		if(send(s,(char*)&m_wd->block,sizeof(BlockInfo),0) <=0)
 		{
@@ -172,7 +172,7 @@ bool ProxyServer::recvShare(SOCKET s)
 void ProxyServer::closeClient(SOCKET s)
 {
 	SOCKADDR_IN sa;
-	int len=sizeof(sa);
+	socklen_t len=sizeof(sa);
 	getpeername(s,(SOCKADDR *)&sa,&len);
 	printf("close proxy client,%s:%d\n",inet_ntoa(sa.sin_addr),ntohs(sa.sin_port));
 	closesocket(s);
@@ -259,7 +259,7 @@ void ProxyServer::sendNewBlock()
 		{
 			printf("ProxyServer::sendNewBlock send error\n");
 		}
-		printf("ProxyServer::sendNewBlock cmd:%08X\n",cmd);
+		//printf("ProxyServer::sendNewBlock cmd:%08X\n",cmd);
 	}
 }
 
