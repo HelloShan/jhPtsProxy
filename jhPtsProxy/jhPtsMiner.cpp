@@ -327,7 +327,7 @@ int main(int argc, char** argv)
 
 		}
 
-		if (getWho() > 1)
+		if (getWho() > 0)
 		{
 			if (cur_hour > 6 && cur_hour < 22)
 			{
