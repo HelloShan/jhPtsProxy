@@ -1,6 +1,7 @@
 #include "ProxyServer.h"
 #include "xptClient.h"
 #include "sha2_interface.h"
+#include <time.h>
 
 ProxyServer *ProxyServer::instance=0;
 int ProxyServer::init(uint16 port)
@@ -16,12 +17,13 @@ int ProxyServer::init(uint16 port)
 	addr.sin_addr.s_addr=ADDR_ANY;
 	if( bind(s,(SOCKADDR*)&addr,sizeof(SOCKADDR_IN)) == SOCKET_ERROR )
 	{
+		printf("proxy server bind error,port %d\n",port);
 		closesocket(s);
 		return -1;
 	}
 	if (0 != listen(s, 64))
 	{
-		printf("listen error\n");
+		printf("listen proxy port %d error\n",port);
 		closesocket(s);
 		return -1;
 	}
@@ -61,6 +63,12 @@ bool ProxyServer::dealListen()
 
 	printf("accept proxy client,%s:%d\n",inet_ntoa(addr.sin_addr),ntohs(addr.sin_port));
 	m_clients.push_back(s);
+
+	string ip = inet_ntoa(addr.sin_addr);
+	PeerVal v;
+	map<string,PeerVal>::iterator it = m_peers.insert(make_pair(ip,v)).first;
+	it->second.isonline = true;
+
 	return true;
 
 }
@@ -166,17 +174,57 @@ bool ProxyServer::recvShare(SOCKET s)
 		return false;
 	}
 	m_xptclient->pushSubmit(p);
+
+	SOCKADDR_IN addr;
+	socklen_t len=sizeof(addr);
+	getpeername(s,(SOCKADDR *)&addr,&len);
+
+	string ip = inet_ntoa(addr.sin_addr);
+	m_peers[ip].share++;
+
 	return true;
 }
 
 void ProxyServer::closeClient(SOCKET s)
 {
-	SOCKADDR_IN sa;
-	socklen_t len=sizeof(sa);
-	getpeername(s,(SOCKADDR *)&sa,&len);
-	printf("close proxy client,%s:%d\n",inet_ntoa(sa.sin_addr),ntohs(sa.sin_port));
+	SOCKADDR_IN addr;
+	socklen_t len=sizeof(addr);
+	getpeername(s,(SOCKADDR *)&addr,&len);
+
+	string ip = inet_ntoa(addr.sin_addr);
+	m_peers[ip].isonline = false;
+
+	printf("close proxy client,%s:%d\n",inet_ntoa(addr.sin_addr),ntohs(addr.sin_port));
 	closesocket(s);
 }
+
+void ProxyServer::getMinersState(string &msg)
+{
+	char buf[100] = {0};
+	if (m_peers.empty())
+	{
+		msg = "NULL!!!\n";
+		return;
+	}
+	msg = "";
+	string tmp;
+	int on = 0,off = 0;
+	for(map<string,PeerVal>::iterator it = m_peers.begin();it != m_peers.end();it++)
+	{
+		sprintf(buf,"%s		%s		%u\n",it->first.c_str(),it->second.isonline?"y":"n",it->second.share);
+		tmp += buf;
+		if (it->second.isonline)
+			on++;
+		else
+			off++;
+	}
+	
+	sprintf(buf," %d miners,%d online,%d offline\n",m_peers.size(),on,off);
+	msg += buf;
+	msg += tmp;
+
+}
+
 
 bool ProxyServer::dealClients()
 {
@@ -263,9 +311,32 @@ void ProxyServer::sendNewBlock()
 	}
 }
 
+void ProxyServer::sendCurrHour()
+{
+	if (m_clients.empty())
+		return;
+
+	time_t tNow = time(NULL);
+	struct tm* ptm;
+	ptm =localtime(&tNow);
+
+	uint32 cmd = (ptm->tm_hour<<8)|CMD_TIME_HOUR;
+	cmd = ntohl_ex(cmd);
+	for (uint32 i = 0;i < m_clients.size();i++)
+	{
+		if (send(m_clients[i],(char*)&cmd,4,0) <= 0)
+		{
+			printf("ProxyServer::sendCurrHour send error\n");
+		}
+		//printf("ProxyServer::sendNewBlock cmd:%08X\n",cmd);
+	}
+}
+
+
 
 THREAD_FUN ProxyServer::main()
 {
+	time_t tLast = time(NULL);
 	while (1)
 	{
 		while (m_listen)
@@ -292,6 +363,13 @@ THREAD_FUN ProxyServer::main()
 		if (!m_clients.empty())
 		{
 			dealClients();
+		}
+
+		time_t tCurr = time(NULL);
+		if (tCurr - tLast > 3)
+		{
+			sendCurrHour();
+			tLast = tCurr;
 		}
 
 		Sleep(1);

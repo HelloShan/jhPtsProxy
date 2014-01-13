@@ -8,6 +8,21 @@
 
 
 class XptClient;
+
+
+struct PeerVal
+{
+	bool isonline;
+	uint32 share;
+
+	PeerVal()
+	{
+		isonline = false;
+		share = 0;
+	}
+};
+
+
 class ProxyServer:public Thread
 {
 	vector<SOCKET> m_clients;
@@ -20,6 +35,8 @@ class ProxyServer:public Thread
 	ProxyServer(){};
 	virtual ~ProxyServer(){};
 	static ProxyServer *instance;
+
+	map<string,PeerVal> m_peers;
 public:
 	static ProxyServer *getInstance()
 	{
@@ -34,6 +51,8 @@ public:
 	
 	virtual	THREAD_FUN  main();
 
+	void getMinersState(string &msg);
+
 private:
 	bool dealListen();
 	bool dealClients();
@@ -45,6 +64,8 @@ private:
 
 	void closeClient(SOCKET s);
 	bool recvData(uint32 len,char *buf,SOCKET s);
+
+	void sendCurrHour();
 
 };
 

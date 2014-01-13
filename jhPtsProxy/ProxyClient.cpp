@@ -2,6 +2,7 @@
 
 ProxyClient *ProxyClient::instance=0;
 volatile uint32 ProxyClient::cur_height=0;
+volatile uint32 ProxyClient::cur_hour=0;
 
 bool ProxyClient::init(string ip,uint16 port,uint32 threadnum)
 {
@@ -178,6 +179,9 @@ bool ProxyClient::dealRecv()
 	case CMD_NEW_BLOCK:
 		//printf("ProxyClient::dealRecv recv CMD_NEW_BLOCK cmd:%08X\n",cmd);
 		clearBlockInfo();
+		break;
+	case CMD_TIME_HOUR:
+		cur_hour = cmd>>8;
 		break;
 	default:
 		printf("ProxyClient::dealRecv recv unk cmd error,%08X\n",cmd);

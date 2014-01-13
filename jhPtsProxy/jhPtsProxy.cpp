@@ -7,6 +7,7 @@
 
 #include "xptClient.h"
 #include "ProxyServer.h"
+#include <stdio.h>
 
 struct commandLineSvr
 {
@@ -20,7 +21,7 @@ struct commandLineSvr
 		ip = "112.124.13.238";
 		port = 28988;
 		proxyport = 10086;
-		user = "PsADEvP6kBevQD2fkRUZxmvuNJZe5u7W8k";
+		user = "PsADEvP6kBevQD2fkRUZxmvuNJZe5u7W8k.gshesh";
 	}
 
 };
@@ -170,17 +171,32 @@ int main(int argc, char** argv)
 	}
 	pServer->start();
 
+	char buf[128] = {0};
 	time_t tStart = time(NULL);
+	time_t tLast = tStart;
 	while(1)
 	{
 		time_t tCurr = time(NULL);
-		if (tCurr - tStart > 300)
+		if (tCurr - tLast > 60)
 		{
-			printf("valid share %u,invalid share %d,last reason %s\n",\
-				XptClient::valid_share,XptClient::invalid_share,XptClient::last_reason.c_str());
-			tStart = tCurr;
-		}
+			sprintf(buf,"[all] valid share %u,invalid share %d,rate per min %.2f,last reason %s\n",\
+				XptClient::valid_share,XptClient::invalid_share,\
+				(double)XptClient::valid_share/((double)(tCurr-tStart)/60),\
+				XptClient::last_reason.c_str());
 
+			string msg;
+			pServer->getMinersState(msg);
+			msg += "\n\n";
+			msg += buf;
+			
+			FILE *fp = NULL;
+			fp = fopen("miners.txt", "w");
+			if (NULL == fp) continue;
+			fwrite(msg.c_str(),msg.length(),1,fp);
+			fclose(fp);
+
+			tLast = tCurr;
+		}
 		Sleep(60*1000);
 	}
 

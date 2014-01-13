@@ -104,7 +104,6 @@ struct WorkerInfo
 	}
 };
 
-
 class XptClient:public Thread
 {
 	string m_ip;

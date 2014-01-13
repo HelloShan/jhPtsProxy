@@ -43,6 +43,8 @@ public:
 	bool haveEnoughBlock();
 
 	static volatile uint32 cur_height;
+	//
+	static volatile uint32 cur_hour;
 private:
 	void openConnection();
 	void closeConnection();
